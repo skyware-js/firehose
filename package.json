@@ -1,17 +1,21 @@
 {
 	"name": "@skyware/firehose",
 	"type": "module",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"license": "MPL-2.0",
-	"dependencies": {
-	},
 	"devDependencies": {
+		"@types/node": "^20.11.19",
+		"@types/ws": "^8.5.10",
 		"@typescript-eslint/eslint-plugin": "^6.7.4",
 		"@typescript-eslint/parser": "^6.7.4",
 		"dprint": "^0.41.0",
 		"eslint": "^8.50.0",
 		"typescript": "^5.2.2"
+	},
+	"dependencies": {
+		"@atproto/xrpc-server": "^0.4.2",
+		"ws": "^8.16.0"
 	}
 }
