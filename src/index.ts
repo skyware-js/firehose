@@ -1,9 +1,9 @@
+import type { ComAtprotoSyncSubscribeRepos } from "@atproto/api";
 import { Frame } from "@atproto/xrpc-server";
 import { EventEmitter } from "node:events";
-import WS, { WebSocket } from "ws";
-import * as ComAtprotoSyncSubscribeRepos from "./lexicons/types/com/atproto/sync/subscribeRepos";
+import * as WS from "ws";
 
-interface FirehoseOptions {
+export interface FirehoseOptions {
 	/**
 	 * The cursor to listen from. If not provided, the firehose will start from the latest event.
 	 */
@@ -16,7 +16,7 @@ interface FirehoseOptions {
 }
 
 export class Firehose extends EventEmitter {
-	ws?: WebSocket;
+	ws?: WS.WebSocket;
 
 	cursor = "";
 
@@ -29,7 +29,9 @@ export class Firehose extends EventEmitter {
 	}
 
 	start() {
-		this.ws = new WebSocket(`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${this.cursor}`);
+		this.ws = new WS.WebSocket(
+			`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${this.cursor}`,
+		);
 
 		this.ws.on("open", () => {
 			this.emit("open");
@@ -165,7 +167,8 @@ export class Firehose extends EventEmitter {
 		) => void,
 	): this;
 	override on(event: string, listener: (...args: any[]) => void): this {
-		return super.on(event, listener);
+		super.on(event, listener);
+		return this;
 	}
 
 	private parseMessage(data: WS.RawData) {
