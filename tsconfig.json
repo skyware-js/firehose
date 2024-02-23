@@ -1,9 +1,9 @@
 {
 	"compilerOptions": {
 		"lib": ["esnext"],
-		"module": "esnext",
 		"target": "esnext",
-		"moduleResolution": "bundler",
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
 		"moduleDetection": "force",
 
 		"declaration": true,
