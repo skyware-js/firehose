@@ -1,6 +1,5 @@
 <p align="center">
-	<img src="https://github.com/skyware-js/.github/blob/main/assets/logo-dark.png?raw=true#gh-dark-mode-only" height="72">
-	<img src="https://github.com/skyware-js/.github/blob/main/assets/logo-light.png?raw=true#gh-light-mode-only" height="72">
+	<img src="https://github.com/skyware-js/.github/blob/main/assets/logo-dark.png?raw=true" height="72">
 </p>
 <h1 align="center">@skyware/firehose</h1>
 
