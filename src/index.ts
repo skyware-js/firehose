@@ -1,5 +1,7 @@
 import type { ComAtprotoSyncSubscribeRepos } from "@atproto/api";
+import { cborToLexRecord, readCar } from "@atproto/repo";
 import { Frame } from "@atproto/xrpc-server";
+import type { CID } from "multiformats";
 import { EventEmitter } from "node:events";
 import * as WS from "ws";
 
@@ -37,9 +39,9 @@ export class Firehose extends EventEmitter {
 			this.emit("open");
 		});
 
-		this.ws.on("message", (data) => {
+		this.ws.on("message", async (data) => {
 			try {
-				const message = this.parseMessage(data);
+				const message = await this.parseMessage(data);
 				if ("seq" in message && message.seq && typeof message.seq === "string") {
 					this.setCursor(message.seq);
 				}
@@ -149,14 +151,7 @@ export class Firehose extends EventEmitter {
 		) => void,
 	): this;
 	/** Represents a commit to a user's repository. */
-	override on(
-		event: "commit",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Commit & {
-				$type: "com.atproto.sync.subscribeRepos#commit";
-			},
-		) => void,
-	): this;
+	override on(event: "commit", listener: (message: ParsedCommit) => void): this;
 	/** An informational message from the relay. */
 	override on(
 		event: "info",
@@ -171,7 +166,7 @@ export class Firehose extends EventEmitter {
 		return this;
 	}
 
-	private parseMessage(data: WS.RawData) {
+	private async parseMessage(data: WS.RawData) {
 		let buffer: Buffer;
 		if (data instanceof Buffer) {
 			buffer = data;
@@ -190,6 +185,32 @@ export class Firehose extends EventEmitter {
 			throw new Error("Invalid frame structure: " + JSON.stringify(frame, null, 2));
 		}
 
+		if (frame.header.t === "#commit") {
+			// A commit can contain no changes
+			if (!("blocks" in frame.body) || !(frame.body.blocks instanceof Uint8Array)) {
+				return {
+					$type: `com.atproto.sync.subscribeRepos#commit`,
+					...(frame.body as ComAtprotoSyncSubscribeRepos.Commit),
+					ops: [],
+				} satisfies ParsedCommit;
+			}
+
+			const commit = frame.body as ComAtprotoSyncSubscribeRepos.Commit;
+			const car = await readCar(commit.blocks);
+			const ops = commit.ops.map((op) => {
+				if (op.action === "create" || op.action === "update") {
+					if (!op.cid) return;
+					const recordBlocks = car.blocks.get(op.cid);
+					if (!recordBlocks) return;
+					return { ...op, record: cborToLexRecord(recordBlocks) };
+				}
+			}).filter((op): op is Exclude<typeof op, undefined> => !!op);
+			return {
+				$type: "com.atproto.sync.subscribeRepos#commit",
+				...commit,
+				ops,
+			} satisfies ParsedCommit;
+		}
 		return { $type: `com.atproto.sync.subscribeRepos${frame.header.t}`, ...frame.body };
 	}
 
@@ -201,4 +222,33 @@ export class Firehose extends EventEmitter {
 			this.cursorInterval = undefined;
 		}, this.options.setCursorInterval);
 	}
+}
+
+export type RepoRecord = ReturnType<typeof cborToLexRecord>;
+
+/**
+ * Represents an update of repository state.
+ */
+export interface ParsedCommit {
+	$type: "com.atproto.sync.subscribeRepos#commit";
+	/** The stream sequence number of this message. */
+	seq: number;
+	/** Indicates that this commit contained too many ops, or data size was too large. Consumers will need to make a separate request to get missing data. */
+	tooBig: boolean;
+	/** The repo this event comes from. */
+	repo: string;
+	/** Repo commit object CID. */
+	commit: CID;
+	/** The rev of the emitted commit. Note that this information is also in the commit object included in blocks, unless this is a tooBig event. */
+	rev: string;
+	/** The rev of the last emitted commit from this repo (if any). */
+	since: string | null;
+	/** CAR file containing relevant blocks, as a diff since the previous repo state. */
+	blocks: Uint8Array;
+	/** List of repo mutation operations in this commit (eg, records created, updated, or deleted). */
+	ops: Array<ComAtprotoSyncSubscribeRepos.RepoOp & { record: RepoRecord }>;
+	/** List of new blobs (by CID) referenced by records in this commit. */
+	blobs: CID[];
+	/** Timestamp of when this message was originally broadcast. */
+	time: string;
 }
