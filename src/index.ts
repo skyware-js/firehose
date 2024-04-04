@@ -5,6 +5,9 @@ import type { CID } from "multiformats";
 import { EventEmitter } from "node:events";
 import * as WS from "ws";
 
+/**
+ * Options for the Firehose class.
+ */
 export interface FirehoseOptions {
 	/**
 	 * The cursor to listen from. If not provided, the firehose will start from the latest event.
@@ -18,18 +21,27 @@ export interface FirehoseOptions {
 }
 
 export class Firehose extends EventEmitter {
-	ws?: WS.WebSocket;
+	/** WebSocket connection to the relay. */
+	public ws?: WS.WebSocket;
 
-	cursor = "";
+	/** The current cursor. */
+	public cursor = "";
 
 	private cursorInterval?: NodeJS.Timeout | undefined;
 
-	constructor(public relay = "wss://bsky.network", private options: FirehoseOptions = {}) {
+	constructor(
+		/** The relay to connect to. */
+		public relay = "wss://bsky.network",
+		private options: FirehoseOptions = {},
+	) {
 		super();
 		this.cursor = options.cursor ?? "";
 		this.options.setCursorInterval ??= 5000;
 	}
 
+	/**
+	 * Opens a WebSocket connection to the relay.
+	 */
 	start() {
 		this.ws = new WS.WebSocket(
 			`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${this.cursor}`,
@@ -82,6 +94,9 @@ export class Firehose extends EventEmitter {
 		});
 	}
 
+	/**
+	 * Closes the WebSocket connection.
+	 */
 	close() {
 		this.ws?.close();
 	}
