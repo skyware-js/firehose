@@ -3,7 +3,9 @@
 </p>
 <h1 align="center">@skyware/firehose</h1>
 
-A dead simple client for subscribing to an ATProto Relay ("firehose").
+A simple client for consuming data from an AT Protocol Relay.
+
+[Documentation](https://skuware.js.org/docs/firehose)
 
 ## Installation
 
@@ -11,8 +13,7 @@ A dead simple client for subscribing to an ATProto Relay ("firehose").
 npm install @skyware/firehose
 ```
 
-## Usage
-*(Documentation coming soon)*
+## Example Usage
 
 ```js
 import { Firehose } from "@skyware/firehose";

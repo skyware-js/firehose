@@ -29,11 +29,12 @@ export class Firehose extends EventEmitter {
 
 	private cursorInterval?: NodeJS.Timeout | undefined;
 
-	constructor(
-		/** The relay to connect to. */
-		public relay = "wss://bsky.network",
-		private options: FirehoseOptions = {},
-	) {
+	/**
+	 * Creates a new Firehose instance.
+	 * @param relay The relay to connect to.
+	 * @param options Optional configuration.
+	 */
+	constructor(public relay = "wss://bsky.network", private options: FirehoseOptions = {}) {
 		super();
 		this.cursor = options.cursor ?? "";
 		this.options.setCursorInterval ??= 5000;
