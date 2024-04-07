@@ -213,12 +213,22 @@ export class Firehose extends EventEmitter {
 
 			const commit = frame.body as ComAtprotoSyncSubscribeRepos.Commit;
 			const car = await readCar(commit.blocks);
-			const ops = commit.ops.map((op) => {
-				if (op.action === "create" || op.action === "update") {
+			const ops: Array<RepoOp> = commit.ops.map((op) => {
+				const action: "create" | "update" | "delete" = op.action as any;
+				if (action === "create" || action === "update") {
 					if (!op.cid) return;
 					const recordBlocks = car.blocks.get(op.cid);
 					if (!recordBlocks) return;
-					return { ...op, record: cborToLexRecord(recordBlocks) };
+					return {
+						action,
+						path: op.path,
+						cid: op.cid,
+						record: cborToLexRecord(recordBlocks),
+					};
+				} else if (action === "delete") {
+					return { action, path: op.path };
+				} else {
+					throw new Error(`Unknown action: ${action}`);
 				}
 			}).filter((op): op is Exclude<typeof op, undefined> => !!op);
 			return {
@@ -240,7 +250,39 @@ export class Firehose extends EventEmitter {
 	}
 }
 
+/**
+ * Represents a record in a repository. An object with string keys & properties of any type.
+ */
 export type RepoRecord = ReturnType<typeof cborToLexRecord>;
+
+/**
+ * Represents a `create` or `update` repository operation.
+ */
+export interface CreateOrUpdateOp {
+	action: "create" | "update";
+
+	/** The record's path in the repository. */
+	path: string;
+
+	/** The record's CID. */
+	cid: CID;
+
+	/** The record itself. */
+	record: RepoRecord;
+}
+
+/**
+ * Represents a `delete` repository operation.
+ */
+export interface DeleteOp {
+	action: "delete";
+
+	/** The record's path in the repository. */
+	path: string;
+}
+
+/** A repository operation. */
+export type RepoOp = CreateOrUpdateOp | DeleteOp;
 
 /**
  * Represents an update of repository state.
@@ -262,7 +304,7 @@ export interface ParsedCommit {
 	/** CAR file containing relevant blocks, as a diff since the previous repo state. */
 	blocks: Uint8Array;
 	/** List of repo mutation operations in this commit (eg, records created, updated, or deleted). */
-	ops: Array<ComAtprotoSyncSubscribeRepos.RepoOp & { record: RepoRecord }>;
+	ops: Array<RepoOp>;
 	/** List of new blobs (by CID) referenced by records in this commit. */
 	blobs: CID[];
 	/** Timestamp of when this message was originally broadcast. */
