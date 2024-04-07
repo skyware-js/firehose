@@ -9,6 +9,12 @@
 	"repository": "https://github.com/skyware-js/firehose",
 	"homepage": "https://skyware.js.org/docs/firehose",
 	"keywords": ["bluesky", "bot", "atproto", "skyware"],
+	"scripts": {
+		"build": "tsc",
+		"lint": "eslint . --ext .ts",
+		"fmt": "dprint fmt",
+		"prepublish": "pnpm lint && pnpm fmt && pnpm build"
+	},
 	"devDependencies": {
 		"@atproto/api": "^0.10.1",
 		"@types/node": "^20.11.19",
