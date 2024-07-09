@@ -44,8 +44,9 @@ export class Firehose extends EventEmitter {
 	 * Opens a WebSocket connection to the relay.
 	 */
 	start() {
+		const cursorQueryParameter = this.cursor ? `?cursor=${this.cursor}` : "";
 		this.ws = new WS.WebSocket(
-			`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${this.cursor}`,
+			`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${cursorQueryParameter}`,
 		);
 
 		this.ws.on("open", () => {
