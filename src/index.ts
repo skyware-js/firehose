@@ -10,6 +10,10 @@ import * as WS from "ws";
  */
 export interface FirehoseOptions {
 	/**
+	 * The Relay to connect to.
+	 */
+	relay?: string;
+	/**
 	 * The cursor to listen from. If not provided, the firehose will start from the latest event.
 	 */
 	cursor?: string;
@@ -21,6 +25,9 @@ export interface FirehoseOptions {
 }
 
 export class Firehose extends EventEmitter {
+	/** The relay to connect to. */
+	public relay: string;
+
 	/** WebSocket connection to the relay. */
 	public ws?: WS.WebSocket;
 
@@ -31,11 +38,11 @@ export class Firehose extends EventEmitter {
 
 	/**
 	 * Creates a new Firehose instance.
-	 * @param relay The relay to connect to.
 	 * @param options Optional configuration.
 	 */
-	constructor(public relay = "wss://bsky.network", private options: FirehoseOptions = {}) {
+	constructor(private options: FirehoseOptions = {}) {
 		super();
+		this.relay = options.relay ?? "wss://bsky.network";
 		this.cursor = options.cursor ?? "";
 		this.options.setCursorInterval ??= 5000;
 	}
