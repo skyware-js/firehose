@@ -22,6 +22,10 @@ export interface FirehoseOptions {
 	 * @default 5000
 	 */
 	setCursorInterval?: number;
+	/**
+	 * A function to call whenever the cursor is updated. Useful for storing the cursor in a file or database.
+	 */
+	onCursorUpdate?: (cursor: string) => void;
 }
 
 export class Firehose extends EventEmitter {
@@ -254,6 +258,7 @@ export class Firehose extends EventEmitter {
 		this.cursorInterval = setTimeout(() => {
 			this.cursor = cursor;
 			this.cursorInterval = undefined;
+			this.options.onCursorUpdate?.(cursor);
 		}, this.options.setCursorInterval);
 	}
 }
