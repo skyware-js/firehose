@@ -26,6 +26,13 @@ export interface FirehoseOptions {
 	 * A function to call whenever the cursor is updated. Useful for storing the cursor in a file or database.
 	 */
 	onCursorUpdate?: (cursor: string) => void;
+	/**
+	 * Whether to automatically reconnect when no new messages are received for a period of time.
+	 * This will not reconnect if the connection was closed intentionally.
+	 * To do that, listen for the `"close"` event and call `start()` again.
+	 * @default true
+	 */
+	autoReconnect?: boolean;
 }
 
 export class Firehose extends EventEmitter {
@@ -40,15 +47,25 @@ export class Firehose extends EventEmitter {
 
 	private cursorInterval?: NodeJS.Timeout | undefined;
 
+	private lastCursorUpdate = Date.now();
+
+	private options: Required<
+		Pick<FirehoseOptions, "setCursorInterval" | "onCursorUpdate" | "autoReconnect">
+	>;
+
 	/**
 	 * Creates a new Firehose instance.
 	 * @param options Optional configuration.
 	 */
-	constructor(private options: FirehoseOptions = {}) {
+	constructor(options: FirehoseOptions = {}) {
 		super();
 		this.relay = options.relay ?? "wss://bsky.network";
 		this.cursor = options.cursor ?? "";
-		this.options.setCursorInterval ??= 5000;
+		this.options = {
+			setCursorInterval: options.setCursorInterval ?? 5000,
+			onCursorUpdate: options.onCursorUpdate ?? (() => {}),
+			autoReconnect: options.autoReconnect ?? true,
+		};
 	}
 
 	/**
@@ -105,6 +122,20 @@ export class Firehose extends EventEmitter {
 		this.ws.on("error", (error) => {
 			this.emit("websocketError", { cursor: this.cursor, error });
 		});
+
+		setInterval(() => {
+			if (
+				this.options.autoReconnect // If the cursor hasn't been updated in twice the interval, reopen the connection
+				&& Date.now() - this.lastCursorUpdate > this.options.setCursorInterval * 2
+			) {
+				// We don't want to emit the close event if we're just reconnecting
+				this.ws?.removeAllListeners("close");
+				this.ws?.terminate();
+				this.start();
+				// Instead, we'll emit reconnect
+				this.emit("reconnect");
+			}
+		}, this.options.setCursorInterval);
 	}
 
 	/**
@@ -118,6 +149,11 @@ export class Firehose extends EventEmitter {
 	override on(event: "open", listener: () => void): this;
 	/** Emitted when the connection is closed. */
 	override on(event: "close", listener: (cursor: string) => void): this;
+	/**
+	 * Emitted when the websocket reconnects due to not receiving any messages for a period of time.
+	 * This will only be emitted if the `autoReconnect` option is `true`.
+	 */
+	override on(event: "reconnect", listener: () => void): this;
 	/** Emitted when an error occurs while handling a message. */
 	override on(
 		event: "error",
@@ -258,6 +294,7 @@ export class Firehose extends EventEmitter {
 		this.cursorInterval = setTimeout(() => {
 			this.cursor = cursor;
 			this.cursorInterval = undefined;
+			this.lastCursorUpdate = Date.now();
 			this.options.onCursorUpdate?.(cursor);
 		}, this.options.setCursorInterval);
 	}
