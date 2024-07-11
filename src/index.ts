@@ -18,15 +18,6 @@ export interface FirehoseOptions {
 	 */
 	cursor?: string;
 	/**
-	 * How frequently to update the stored cursor, in milliseconds.
-	 * @default 5000
-	 */
-	setCursorInterval?: number;
-	/**
-	 * A function to call whenever the cursor is updated. Useful for storing the cursor in a file or database.
-	 */
-	onCursorUpdate?: (cursor: string) => void;
-	/**
 	 * Whether to automatically reconnect when no new messages are received for a period of time.
 	 * This will not reconnect if the connection was closed intentionally.
 	 * To do that, listen for the `"close"` event and call `start()` again.
@@ -45,13 +36,11 @@ export class Firehose extends EventEmitter {
 	/** The current cursor. */
 	public cursor = "";
 
-	private cursorInterval?: NodeJS.Timeout | undefined;
+	private autoReconnect: boolean;
 
-	private lastCursorUpdate = Date.now();
+	private heartbeat = Date.now();
 
-	private options: Required<
-		Pick<FirehoseOptions, "setCursorInterval" | "onCursorUpdate" | "autoReconnect">
-	>;
+	private heartbeatInterval: NodeJS.Timeout | undefined;
 
 	/**
 	 * Creates a new Firehose instance.
@@ -61,11 +50,7 @@ export class Firehose extends EventEmitter {
 		super();
 		this.relay = options.relay ?? "wss://bsky.network";
 		this.cursor = options.cursor ?? "";
-		this.options = {
-			setCursorInterval: options.setCursorInterval ?? 5000,
-			onCursorUpdate: options.onCursorUpdate ?? (() => {}),
-			autoReconnect: options.autoReconnect ?? true,
-		};
+		this.autoReconnect = options.autoReconnect ?? true;
 	}
 
 	/**
@@ -84,8 +69,9 @@ export class Firehose extends EventEmitter {
 		this.ws.on("message", async (data) => {
 			try {
 				const message = await this.parseMessage(data);
+				this.updateHeartbeat();
 				if ("seq" in message && message.seq && typeof message.seq === "string") {
-					this.setCursor(message.seq);
+					this.cursor = message.seq;
 				}
 				switch (message.$type) {
 					case "com.atproto.sync.subscribeRepos#handle":
@@ -125,8 +111,8 @@ export class Firehose extends EventEmitter {
 
 		setInterval(() => {
 			if (
-				this.options.autoReconnect // If the cursor hasn't been updated in twice the interval, reopen the connection
-				&& Date.now() - this.lastCursorUpdate > this.options.setCursorInterval * 2
+				this.autoReconnect // If the heartbeat timestamp hasn't been updated in 15 seconds, reopen the connection
+				&& Date.now() - this.heartbeat > 15_000
 			) {
 				// We don't want to emit the close event if we're just reconnecting
 				this.ws?.removeAllListeners("close");
@@ -135,7 +121,7 @@ export class Firehose extends EventEmitter {
 				// Instead, we'll emit reconnect
 				this.emit("reconnect");
 			}
-		}, this.options.setCursorInterval);
+		}, 5_000);
 	}
 
 	/**
@@ -288,15 +274,12 @@ export class Firehose extends EventEmitter {
 		return { $type: `com.atproto.sync.subscribeRepos${frame.header.t}`, ...frame.body };
 	}
 
-	/** Sets the cursor once every `setCursorInterval` milliseconds. */
-	private setCursor(cursor: string) {
-		if (this.cursorInterval) return;
-		this.cursorInterval = setTimeout(() => {
-			this.cursor = cursor;
-			this.cursorInterval = undefined;
-			this.lastCursorUpdate = Date.now();
-			this.options.onCursorUpdate?.(cursor);
-		}, this.options.setCursorInterval);
+	/** Sets heartbeat timestamp every 5 seconds. */
+	private updateHeartbeat() {
+		if (this.heartbeatInterval) return;
+		this.heartbeatInterval = setTimeout(() => {
+			this.heartbeat = Date.now();
+		}, 5_000);
 	}
 }
 
