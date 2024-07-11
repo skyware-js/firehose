@@ -5,7 +5,7 @@
 
 A simple client for consuming data from an AT Protocol Relay.
 
-[Documentation](https://skuware.js.org/docs/firehose)
+[Documentation](https://skyware.js.org/docs/firehose)
 
 ## Installation
 
