@@ -3,6 +3,7 @@ import { cborToLexRecord, readCar } from "@atproto/repo";
 import { Frame } from "@atproto/xrpc-server";
 import type { CID } from "multiformats";
 import { EventEmitter } from "node:events";
+import { clearInterval } from "node:timers";
 import * as WS from "ws";
 
 /**
@@ -40,7 +41,7 @@ export class Firehose extends EventEmitter {
 
 	private heartbeat = Date.now();
 
-	private heartbeatInterval: NodeJS.Timeout | undefined;
+	private heartbeatTimeout: NodeJS.Timeout | undefined;
 
 	/**
 	 * Creates a new Firehose instance.
@@ -109,7 +110,7 @@ export class Firehose extends EventEmitter {
 			this.emit("websocketError", { cursor: this.cursor, error });
 		});
 
-		setInterval(() => {
+		const heartbeatInterval = setInterval(() => {
 			if (
 				this.autoReconnect // If the heartbeat timestamp hasn't been updated in 15 seconds, reopen the connection
 				&& Date.now() - this.heartbeat > 15_000
@@ -117,11 +118,12 @@ export class Firehose extends EventEmitter {
 				// We don't want to emit the close event if we're just reconnecting
 				this.ws?.removeAllListeners("close");
 				this.ws?.terminate();
+				clearInterval(heartbeatInterval);
 				this.start();
 				// Instead, we'll emit reconnect
 				this.emit("reconnect");
 			}
-		}, 5_000);
+		}, 30_000);
 	}
 
 	/**
@@ -276,8 +278,8 @@ export class Firehose extends EventEmitter {
 
 	/** Sets heartbeat timestamp every 5 seconds. */
 	private updateHeartbeat() {
-		if (this.heartbeatInterval) return;
-		this.heartbeatInterval = setTimeout(() => {
+		if (this.heartbeatTimeout) return;
+		this.heartbeatTimeout = setTimeout(() => {
 			this.heartbeat = Date.now();
 		}, 5_000);
 	}
