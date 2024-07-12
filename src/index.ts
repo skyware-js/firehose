@@ -3,7 +3,6 @@ import { cborToLexRecord, readCar } from "@atproto/repo";
 import { Frame } from "@atproto/xrpc-server";
 import type { CID } from "multiformats";
 import { EventEmitter } from "node:events";
-import { clearInterval } from "node:timers";
 import * as WS from "ws";
 
 /**
@@ -39,9 +38,7 @@ export class Firehose extends EventEmitter {
 
 	private autoReconnect: boolean;
 
-	private heartbeat = Date.now();
-
-	private heartbeatTimeout: NodeJS.Timeout | undefined;
+	private reconnectTimeout: NodeJS.Timeout | undefined;
 
 	/**
 	 * Creates a new Firehose instance.
@@ -70,9 +67,8 @@ export class Firehose extends EventEmitter {
 		this.ws.on("message", async (data) => {
 			try {
 				const message = await this.parseMessage(data);
-				this.updateHeartbeat();
-				if ("seq" in message && message.seq && typeof message.seq === "string") {
-					this.cursor = message.seq;
+				if ("seq" in message && message.seq && !isNaN(message.seq)) {
+					this.cursor = `${message.seq}`;
 				}
 				switch (message.$type) {
 					case "com.atproto.sync.subscribeRepos#handle":
@@ -99,6 +95,8 @@ export class Firehose extends EventEmitter {
 				}
 			} catch (error) {
 				this.emit("error", { cursor: this.cursor, error });
+			} finally {
+				if (this.autoReconnect) this.preventReconnect();
 			}
 		});
 
@@ -109,21 +107,6 @@ export class Firehose extends EventEmitter {
 		this.ws.on("error", (error) => {
 			this.emit("websocketError", { cursor: this.cursor, error });
 		});
-
-		const heartbeatInterval = setInterval(() => {
-			if (
-				this.autoReconnect // If the heartbeat timestamp hasn't been updated in 15 seconds, reopen the connection
-				&& Date.now() - this.heartbeat > 15_000
-			) {
-				// We don't want to emit the close event if we're just reconnecting
-				this.ws?.removeAllListeners("close");
-				this.ws?.terminate();
-				clearInterval(heartbeatInterval);
-				this.start();
-				// Instead, we'll emit reconnect
-				this.emit("reconnect");
-			}
-		}, 30_000);
 	}
 
 	/**
@@ -276,12 +259,18 @@ export class Firehose extends EventEmitter {
 		return { $type: `com.atproto.sync.subscribeRepos${frame.header.t}`, ...frame.body };
 	}
 
-	/** Sets heartbeat timestamp every 5 seconds. */
-	private updateHeartbeat() {
-		if (this.heartbeatTimeout) return;
-		this.heartbeatTimeout = setTimeout(() => {
-			this.heartbeat = Date.now();
+	private preventReconnect() {
+		if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+		this.reconnectTimeout = setTimeout(() => {
+			this.reconnect();
 		}, 5_000);
+	}
+
+	private reconnect() {
+		this.ws?.removeAllListeners();
+		this.ws?.terminate();
+		this.start();
+		this.emit("reconnect");
 	}
 }
 
