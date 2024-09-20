@@ -17,14 +17,14 @@
 	},
 	"devDependencies": {
 		"@atproto/api": "^0.10.1",
-		"@types/node": "^20.11.19",
+		"@types/node": "^22.5.5",
 		"@types/ws": "^8.5.10",
 		"@typescript-eslint/eslint-plugin": "^6.7.4",
 		"@typescript-eslint/parser": "^6.7.4",
 		"dprint": "^0.41.0",
 		"eslint": "^8.50.0",
 		"multiformats": "^13.1.0",
-		"typescript": "^5.2.2"
+		"typescript": "^5.6.2"
 	},
 	"dependencies": {
 		"@atproto/repo": "^0.3.7",
