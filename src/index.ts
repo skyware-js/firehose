@@ -139,7 +139,7 @@ export class Firehose extends EventEmitter {
 	override on(event: "unknown", listener: (message: unknown) => void): this;
 	/**
 	 * Represents an update of an account's handle, or transition to/from invalid state.
-	 * NOTE: Will be deprecated in favor of #identity.
+	 * @deprecated Use on("identity") instead.
 	 */
 	override on(
 		event: "handle",
@@ -151,7 +151,7 @@ export class Firehose extends EventEmitter {
 	): this;
 	/**
 	 * Represents an account moving from one PDS instance to another.
-	 * NOTE: not implemented; account migration uses #identity instead
+	 * @deprecated Use on("account") instead.
 	 */
 	override on(
 		event: "migrate",
@@ -163,7 +163,7 @@ export class Firehose extends EventEmitter {
 	): this;
 	/**
 	 * Indicates that an account has been deleted.
-	 * NOTE: may be deprecated in favor of #identity or a future #account event
+	 * @deprecated Use on("account") instead.
 	 */
 	override on(
 		event: "tombstone",
