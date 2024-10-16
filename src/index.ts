@@ -1,7 +1,7 @@
-import type { ComAtprotoSyncSubscribeRepos } from "@atproto/api";
-import { cborToLexRecord, readCar } from "@atproto/repo";
-import { Frame } from "@atproto/xrpc-server";
-import type { CID } from "multiformats";
+import { readCar as createCarIterator } from "@atcute/car";
+import { decode, decodeFirst, fromBytes, toCIDLink } from "@atcute/cbor";
+import type { At, ComAtprotoSyncSubscribeRepos } from "@atcute/client/lexicons";
+
 import { EventEmitter } from "node:events";
 import * as WS from "ws";
 
@@ -64,9 +64,9 @@ export class Firehose extends EventEmitter {
 			this.emit("open");
 		});
 
-		this.ws.on("message", async (data) => {
+		this.ws.on("message", (data) => {
 			try {
-				const message = await this.parseMessage(data);
+				const message = this.parseMessage(data);
 				if ("seq" in message && message.seq && !isNaN(message.seq)) {
 					this.cursor = `${message.seq}`;
 				}
@@ -201,7 +201,7 @@ export class Firehose extends EventEmitter {
 		return this;
 	}
 
-	private async parseMessage(data: WS.RawData) {
+	private parseMessage(data: WS.RawData): ParsedCommit | { $type: string; seq?: number } {
 		let buffer: Buffer;
 		if (data instanceof Buffer) {
 			buffer = data;
@@ -213,37 +213,38 @@ export class Firehose extends EventEmitter {
 			throw new Error("Unknown message contents: " + data);
 		}
 
-		const frame = Frame.fromBytes(buffer);
-
-		if (frame.isError()) throw new Error(`Error: ${frame.message}\nError code: ${frame.code}`);
-		if (!frame.header.t || !frame.body || typeof frame.body !== "object") {
-			throw new Error("Invalid frame structure: " + JSON.stringify(frame, null, 2));
+		const [header, remainder] = decodeFirst(buffer);
+		const [body, remainder2] = decodeFirst(remainder);
+		if (remainder2.length > 0) {
+			throw new Error("Excess bytes in message");
 		}
 
-		if (frame.header.t === "#commit") {
+		const { t, op } = parseHeader(header);
+
+		if (op === -1) throw new Error(`Error: ${body.message}\nError code: ${body.error}`);
+
+		if (t === "#commit") {
+			const commit = body as ComAtprotoSyncSubscribeRepos.Commit;
+
 			// A commit can contain no changes
-			if (!("blocks" in frame.body) || !(frame.body.blocks instanceof Uint8Array)) {
+			if (!("blocks" in commit) || !(commit.blocks.$bytes.length)) {
 				return {
-					$type: `com.atproto.sync.subscribeRepos#commit`,
-					...(frame.body as ComAtprotoSyncSubscribeRepos.Commit),
+					$type: "com.atproto.sync.subscribeRepos#commit",
+					...commit,
+					blocks: new Uint8Array(),
 					ops: [],
 				} satisfies ParsedCommit;
 			}
 
-			const commit = frame.body as ComAtprotoSyncSubscribeRepos.Commit;
-			const car = await readCar(commit.blocks);
+			const blocks = fromBytes(commit.blocks);
+			const car = readCar(blocks);
 			const ops: Array<RepoOp> = commit.ops.map((op) => {
 				const action: "create" | "update" | "delete" = op.action as any;
 				if (action === "create" || action === "update") {
 					if (!op.cid) return;
-					const recordBlocks = car.blocks.get(op.cid);
-					if (!recordBlocks) return;
-					return {
-						action,
-						path: op.path,
-						cid: op.cid,
-						record: cborToLexRecord(recordBlocks),
-					};
+					const record = car.get(op.cid.$link);
+					if (!record) return;
+					return { action, path: op.path, cid: op.cid.$link, record };
 				} else if (action === "delete") {
 					return { action, path: op.path };
 				} else {
@@ -253,10 +254,11 @@ export class Firehose extends EventEmitter {
 			return {
 				$type: "com.atproto.sync.subscribeRepos#commit",
 				...commit,
+				blocks,
 				ops,
 			} satisfies ParsedCommit;
 		}
-		return { $type: `com.atproto.sync.subscribeRepos${frame.header.t}`, ...frame.body };
+		return { $type: `com.atproto.sync.subscribeRepos${t}`, ...body };
 	}
 
 	private preventReconnect() {
@@ -275,11 +277,6 @@ export class Firehose extends EventEmitter {
 }
 
 /**
- * Represents a record in a repository. An object with string keys & properties of any type.
- */
-export type RepoRecord = ReturnType<typeof cborToLexRecord>;
-
-/**
  * Represents a `create` or `update` repository operation.
  */
 export interface CreateOrUpdateOp {
@@ -289,10 +286,10 @@ export interface CreateOrUpdateOp {
 	path: string;
 
 	/** The record's CID. */
-	cid: CID;
+	cid: string;
 
 	/** The record itself. */
-	record: RepoRecord;
+	record: {};
 }
 
 /**
@@ -320,7 +317,7 @@ export interface ParsedCommit {
 	/** The repo this event comes from. */
 	repo: string;
 	/** Repo commit object CID. */
-	commit: CID;
+	commit: At.CIDLink;
 	/** The rev of the emitted commit. Note that this information is also in the commit object included in blocks, unless this is a tooBig event. */
 	rev: string;
 	/** The rev of the last emitted commit from this repo (if any). */
@@ -330,7 +327,23 @@ export interface ParsedCommit {
 	/** List of repo mutation operations in this commit (eg, records created, updated, or deleted). */
 	ops: Array<RepoOp>;
 	/** List of new blobs (by CID) referenced by records in this commit. */
-	blobs: CID[];
+	blobs: At.CIDLink[];
 	/** Timestamp of when this message was originally broadcast. */
 	time: string;
+}
+
+function parseHeader(header: any): { t: string; op: 1 | -1 } {
+	if (
+		!header || typeof header !== "object" || !header.t || typeof header.t !== "string"
+		|| !header.op || typeof header.op !== "number"
+	) throw new Error("Invalid header received");
+	return { t: header.t, op: header.op };
+}
+
+function readCar(buffer: Uint8Array): Map<At.CID, unknown> {
+	const records = new Map<At.CID, unknown>();
+	for (const { cid, bytes } of createCarIterator(buffer).iterate()) {
+		records.set(toCIDLink(cid).$link, decode(bytes));
+	}
+	return records;
 }
