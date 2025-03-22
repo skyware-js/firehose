@@ -71,17 +71,11 @@ export class Firehose extends EventEmitter {
 					this.cursor = `${message.seq}`;
 				}
 				switch (message.$type) {
-					case "com.atproto.sync.subscribeRepos#handle":
-						this.emit("handle", message);
-						break;
-					case "com.atproto.sync.subscribeRepos#tombstone":
-						this.emit("tombstone", message);
-						break;
-					case "com.atproto.sync.subscribeRepos#migrate":
-						this.emit("migrate", message);
-						break;
 					case "com.atproto.sync.subscribeRepos#identity":
 						this.emit("identity", message);
+						break;
+					case "com.atproto.sync.subscribeRepos#account":
+						this.emit("account", message);
 						break;
 					case "com.atproto.sync.subscribeRepos#info":
 						this.emit("info", message);
@@ -138,42 +132,6 @@ export class Firehose extends EventEmitter {
 	/** Emitted when an unknown message is received. */
 	override on(event: "unknown", listener: (message: unknown) => void): this;
 	/**
-	 * Represents an update of an account's handle, or transition to/from invalid state.
-	 * @deprecated Use on("identity") instead.
-	 */
-	override on(
-		event: "handle",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Handle & {
-				$type: "com.atproto.sync.subscribeRepos#handle";
-			},
-		) => void,
-	): this;
-	/**
-	 * Represents an account moving from one PDS instance to another.
-	 * @deprecated Use on("account") instead.
-	 */
-	override on(
-		event: "migrate",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Migrate & {
-				$type: "com.atproto.sync.subscribeRepos#migrate";
-			},
-		) => void,
-	): this;
-	/**
-	 * Indicates that an account has been deleted.
-	 * @deprecated Use on("account") instead.
-	 */
-	override on(
-		event: "tombstone",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Tombstone & {
-				$type: "com.atproto.sync.subscribeRepos#tombstone";
-			},
-		) => void,
-	): this;
-	/**
 	 * Represents a change to an account's identity.
 	 * Could be an updated handle, signing key, or pds hosting endpoint.
 	 */
@@ -182,6 +140,17 @@ export class Firehose extends EventEmitter {
 		listener: (
 			message: ComAtprotoSyncSubscribeRepos.Identity & {
 				$type: "com.atproto.sync.subscribeRepos#identity";
+			},
+		) => void,
+	): this;
+	/**
+	 * Represents a change to an account's status on a host (eg, PDS or Relay).
+	 */
+	override on(
+		event: "account",
+		listener: (
+			message: ComAtprotoSyncSubscribeRepos.Account & {
+				$type: "com.atproto.sync.subscribeRepos#account";
 			},
 		) => void,
 	): this;
@@ -221,13 +190,15 @@ export class Firehose extends EventEmitter {
 
 		const { t, op } = parseHeader(header);
 
-		if (op === -1) throw new Error(`Error: ${body.message}\nError code: ${body.error}`);
+		if (op === -1) {
+			throw new Error(`Error: ${body.message}\nError code: ${body.error}`);
+		}
 
 		if (t === "#commit") {
 			const commit = body as ComAtprotoSyncSubscribeRepos.Commit;
 
 			// A commit can contain no changes
-			if (!("blocks" in commit) || !(commit.blocks.$bytes.length)) {
+			if (!("blocks" in commit) || !commit.blocks.$bytes.length) {
 				return {
 					$type: "com.atproto.sync.subscribeRepos#commit",
 					...commit,
@@ -334,9 +305,15 @@ export interface ParsedCommit {
 
 function parseHeader(header: any): { t: string; op: 1 | -1 } {
 	if (
-		!header || typeof header !== "object" || !header.t || typeof header.t !== "string"
-		|| !header.op || typeof header.op !== "number"
-	) throw new Error("Invalid header received");
+		!header
+		|| typeof header !== "object"
+		|| !header.t
+		|| typeof header.t !== "string"
+		|| !header.op
+		|| typeof header.op !== "number"
+	) {
+		throw new Error("Invalid header received");
+	}
 	return { t: header.t, op: header.op };
 }
 
