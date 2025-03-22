@@ -83,6 +83,9 @@ export class Firehose extends EventEmitter {
 					case "com.atproto.sync.subscribeRepos#identity":
 						this.emit("identity", message);
 						break;
+					case "com.atproto.sync.subscribeRepos#account":
+						this.emit("account", message);
+						break;
 					case "com.atproto.sync.subscribeRepos#info":
 						this.emit("info", message);
 						break;
@@ -185,6 +188,17 @@ export class Firehose extends EventEmitter {
 			},
 		) => void,
 	): this;
+	/**
+	 * Represents a change to an account's status on a host (eg, PDS or Relay).
+	 */
+	override on(
+		event: "account",
+		listener: (
+			message: ComAtprotoSyncSubscribeRepos.Account & {
+				$type: "com.atproto.sync.subscribeRepos#account";
+			},
+		) => void,
+	): this;
 	/** Represents a commit to a user's repository. */
 	override on(event: "commit", listener: (message: ParsedCommit) => void): this;
 	/** An informational message from the relay. */
@@ -221,13 +235,15 @@ export class Firehose extends EventEmitter {
 
 		const { t, op } = parseHeader(header);
 
-		if (op === -1) throw new Error(`Error: ${body.message}\nError code: ${body.error}`);
+		if (op === -1) {
+			throw new Error(`Error: ${body.message}\nError code: ${body.error}`);
+		}
 
 		if (t === "#commit") {
 			const commit = body as ComAtprotoSyncSubscribeRepos.Commit;
 
 			// A commit can contain no changes
-			if (!("blocks" in commit) || !(commit.blocks.$bytes.length)) {
+			if (!("blocks" in commit) || !commit.blocks.$bytes.length) {
 				return {
 					$type: "com.atproto.sync.subscribeRepos#commit",
 					...commit,
@@ -334,9 +350,15 @@ export interface ParsedCommit {
 
 function parseHeader(header: any): { t: string; op: 1 | -1 } {
 	if (
-		!header || typeof header !== "object" || !header.t || typeof header.t !== "string"
-		|| !header.op || typeof header.op !== "number"
-	) throw new Error("Invalid header received");
+		!header
+		|| typeof header !== "object"
+		|| !header.t
+		|| typeof header.t !== "string"
+		|| !header.op
+		|| typeof header.op !== "number"
+	) {
+		throw new Error("Invalid header received");
+	}
 	return { t: header.t, op: header.op };
 }
 
