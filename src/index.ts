@@ -71,15 +71,6 @@ export class Firehose extends EventEmitter {
 					this.cursor = `${message.seq}`;
 				}
 				switch (message.$type) {
-					case "com.atproto.sync.subscribeRepos#handle":
-						this.emit("handle", message);
-						break;
-					case "com.atproto.sync.subscribeRepos#tombstone":
-						this.emit("tombstone", message);
-						break;
-					case "com.atproto.sync.subscribeRepos#migrate":
-						this.emit("migrate", message);
-						break;
 					case "com.atproto.sync.subscribeRepos#identity":
 						this.emit("identity", message);
 						break;
@@ -140,42 +131,6 @@ export class Firehose extends EventEmitter {
 	): this;
 	/** Emitted when an unknown message is received. */
 	override on(event: "unknown", listener: (message: unknown) => void): this;
-	/**
-	 * Represents an update of an account's handle, or transition to/from invalid state.
-	 * @deprecated Use on("identity") instead.
-	 */
-	override on(
-		event: "handle",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Handle & {
-				$type: "com.atproto.sync.subscribeRepos#handle";
-			},
-		) => void,
-	): this;
-	/**
-	 * Represents an account moving from one PDS instance to another.
-	 * @deprecated Use on("account") instead.
-	 */
-	override on(
-		event: "migrate",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Migrate & {
-				$type: "com.atproto.sync.subscribeRepos#migrate";
-			},
-		) => void,
-	): this;
-	/**
-	 * Indicates that an account has been deleted.
-	 * @deprecated Use on("account") instead.
-	 */
-	override on(
-		event: "tombstone",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Tombstone & {
-				$type: "com.atproto.sync.subscribeRepos#tombstone";
-			},
-		) => void,
-	): this;
 	/**
 	 * Represents a change to an account's identity.
 	 * Could be an updated handle, signing key, or pds hosting endpoint.
