@@ -24,6 +24,11 @@ export interface FirehoseOptions {
 	 * @default true
 	 */
 	autoReconnect?: boolean;
+
+	/**
+	 * The WebSocket implementation to use.
+	 */
+	wsImpl?: typeof WS.WebSocket;
 }
 
 export class Firehose extends TinyEmitter {
@@ -31,7 +36,7 @@ export class Firehose extends TinyEmitter {
 	public relay: string;
 
 	/** WebSocket connection to the relay. */
-	public ws?: WS.WebSocket;
+	public ws: WS.WebSocket;
 
 	/** The current cursor. */
 	public cursor = "";
@@ -49,17 +54,17 @@ export class Firehose extends TinyEmitter {
 		this.relay = options.relay ?? "wss://bsky.network";
 		this.cursor = options.cursor ?? "";
 		this.autoReconnect = options.autoReconnect ?? true;
+
+		const cursorQueryParameter = this.cursor ? `?cursor=${this.cursor}` : "";
+		this.ws = new (options.wsImpl ?? WS.WebSocket)(
+			`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${cursorQueryParameter}`,
+		);
 	}
 
 	/**
 	 * Opens a WebSocket connection to the relay.
 	 */
 	start() {
-		const cursorQueryParameter = this.cursor ? `?cursor=${this.cursor}` : "";
-		this.ws = new WS.WebSocket(
-			`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${cursorQueryParameter}`,
-		);
-
 		this.ws.on("open", () => {
 			this.emit("open");
 		});
