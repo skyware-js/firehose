@@ -2,7 +2,7 @@ import { readCar as createCarIterator } from "@atcute/car";
 import { decode, decodeFirst, fromBytes, toCIDLink } from "@atcute/cbor";
 import type { At, ComAtprotoSyncSubscribeRepos } from "@atcute/client/lexicons";
 
-import { EventEmitter } from "node:events";
+import { TinyEmitter } from "tiny-emitter";
 import * as WS from "ws";
 
 /**
@@ -26,7 +26,7 @@ export interface FirehoseOptions {
 	autoReconnect?: boolean;
 }
 
-export class Firehose extends EventEmitter {
+export class Firehose extends TinyEmitter {
 	/** The relay to connect to. */
 	public relay: string;
 
