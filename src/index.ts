@@ -1,5 +1,5 @@
 import { readCar as createCarIterator } from "@atcute/car";
-import { decode, decodeFirst, fromBytes, toCIDLink } from "@atcute/cbor";
+import { decode, decodeFirst, fromBytes, toCidLink } from "@atcute/cbor";
 import type { At, ComAtprotoSyncSubscribeRepos } from "@atcute/client/lexicons";
 
 import { TinyEmitter } from "tiny-emitter";
@@ -85,6 +85,9 @@ export class Firehose extends TinyEmitter {
 					case "com.atproto.sync.subscribeRepos#info":
 						this.emit("info", message);
 						break;
+					case "com.atproto.sync.subscribeRepos#sync":
+						this.emit("sync", message);
+						break;
 					case "com.atproto.sync.subscribeRepos#commit":
 						this.emit("commit", message);
 						break;
@@ -156,6 +159,19 @@ export class Firehose extends TinyEmitter {
 		listener: (
 			message: ComAtprotoSyncSubscribeRepos.Account & {
 				$type: "com.atproto.sync.subscribeRepos#account";
+			},
+		) => void,
+	): this;
+	/**
+	 * Updates the repo to a new state, without necessarily including that state on the firehose.
+	 * Used to recover from broken commit streams, data loss incidents, or in situations where upstream
+	 * host does not know recent state of the repository.
+	 */
+	override on(
+		event: "sync",
+		listener: (
+			message: ComAtprotoSyncSubscribeRepos.Sync & {
+				$type: "com.atproto.sync.subscribeRepos#sync";
 			},
 		) => void,
 	): this;
@@ -293,7 +309,7 @@ export interface ParsedCommit {
 	/** The repo this event comes from. */
 	repo: string;
 	/** Repo commit object CID. */
-	commit: At.CIDLink;
+	commit: At.CidLink;
 	/** The rev of the emitted commit. Note that this information is also in the commit object included in blocks, unless this is a tooBig event. */
 	rev: string;
 	/** The rev of the last emitted commit from this repo (if any). */
@@ -303,7 +319,7 @@ export interface ParsedCommit {
 	/** List of repo mutation operations in this commit (eg, records created, updated, or deleted). */
 	ops: Array<RepoOp>;
 	/** List of new blobs (by CID) referenced by records in this commit. */
-	blobs: At.CIDLink[];
+	blobs: At.CidLink[];
 	/** Timestamp of when this message was originally broadcast. */
 	time: string;
 }
@@ -322,10 +338,10 @@ function parseHeader(header: any): { t: string; op: 1 | -1 } {
 	return { t: header.t, op: header.op };
 }
 
-function readCar(buffer: Uint8Array): Map<At.CID, unknown> {
-	const records = new Map<At.CID, unknown>();
+function readCar(buffer: Uint8Array): Map<At.Cid, unknown> {
+	const records = new Map<At.Cid, unknown>();
 	for (const { cid, bytes } of createCarIterator(buffer).iterate()) {
-		records.set(toCIDLink(cid).$link, decode(bytes));
+		records.set(toCidLink(cid).$link, decode(bytes));
 	}
 	return records;
 }

@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@atcute/car':
-        specifier: ^1.1.0
-        version: 1.1.0
+        specifier: ^3.0.3
+        version: 3.0.3
       '@atcute/cbor':
-        specifier: ^1.0.3
-        version: 1.0.3
+        specifier: ^2.2.2
+        version: 2.2.2
       tiny-emitter:
         specifier: ^2.1.0
         version: 2.1.0
@@ -22,8 +22,8 @@ importers:
         version: 8.16.0
     devDependencies:
       '@atcute/client':
-        specifier: ^2.0.2
-        version: 2.0.2
+        specifier: ^3.0.1
+        version: 3.0.1
       '@types/node':
         specifier: ^22.5.5
         version: 22.5.5
@@ -55,23 +55,26 @@ packages:
     resolution: {integrity: sha512-1Yjs2SvM8TflER/OD3cOjhWWOZb58A2t7wpE2S9XfBYTiIl+XFhQG2bjy4Pu1I+EAlCNUzRDYDdFwFYUKvXcIA==}
     engines: {node: '>=0.10.0'}
 
-  '@atcute/base32@1.0.0':
-    resolution: {integrity: sha512-Mbjsv6kd/ymvDMGjCoh9eqhlpFsoJ6zYguU6xtKxqh1wGhe5rvBOfMRXsEqcp7srn8Bfp8QhevqLgmwrWvzqrA==}
+  '@atcute/car@3.0.3':
+    resolution: {integrity: sha512-TV596HRRl8LgNcO58fqf6zELjYutrpcj3VeM7cnoEQ3GLwH0hJSbPmYlRxF1gxurJhMEE5PUpIDb+dgDxFRLpw==}
 
-  '@atcute/car@1.1.0':
-    resolution: {integrity: sha512-Ayi8gilzgMMYZ1sqbHqqP52OOJlxrbsAxgAB3Kgz/NJvl9StlYKKlUQN580gZebsG0B+EYbhToQJYoCs3ioW+A==}
+  '@atcute/cbor@2.2.2':
+    resolution: {integrity: sha512-UzgoEtgGzWy5p9qcFfirRCCgGl1QF8xQF53ycq5yaZ43o7pJdGsctAHK58rTru9QfQxTZs7V9vTDUIxVEZ0s9g==}
 
-  '@atcute/cbor@1.0.3':
-    resolution: {integrity: sha512-l9TgRsqCnt1tyTPc4mz5Sf3T0s2oDVTitd2owQO53fn+mnp8gCh7d+7fxIF4wulCGF8qxb5Zqa6VXBMOlhm3UA==}
+  '@atcute/cid@2.2.1':
+    resolution: {integrity: sha512-tSsVdgx8jj+n6l+MP8IN8rZCR9N4ltJ8EPMiRzo6uduAAygYiZkCRceCOZ57IMtToZcSgm3nxYr4g1aeUbHUcw==}
 
-  '@atcute/cid@1.0.1':
-    resolution: {integrity: sha512-92Cor2ruS7y+/wdFutp2qFDjJj4mTcO7HdZ/BhTQRg/nzWdAnTann5DAmYjD+IWRaXd5SYk4dOZnDt4lsGofzg==}
+  '@atcute/client@3.0.1':
+    resolution: {integrity: sha512-j51SuQYQj5jeKrx1DCXx+Q3fpVvO0JYGnKnJAdDSlesSLjPXjvnx1abC+hkuro58KRHHJvRA6P1MC0pmJsWfcg==}
 
-  '@atcute/client@2.0.2':
-    resolution: {integrity: sha512-bTGoo8cs0B0gXLwI8YYaFayjDIlo8V1wxgng3HkA+jyz22wCh8aL0/4F9Tt4GDKXGCgf+/6IHg1M6uGOX8JVSw==}
+  '@atcute/multibase@1.1.3':
+    resolution: {integrity: sha512-vQQO0tDuQPguBvHdgV3ryn7R8U6beQ50KA/juYm+dCeT/3hOK2stMbX+IaW8JEuwkT5lJsU8wDIOicQT4mB7Ag==}
 
-  '@atcute/varint@1.0.0':
-    resolution: {integrity: sha512-NEBOGkdaDY8cjlDg49kefIsRM7iv/4oReEnOr3bN4tF3IxBGdc6Io1NCJz1xNBNdUL+3VDG3CKHiRji91HXaTg==}
+  '@atcute/uint8array@1.0.1':
+    resolution: {integrity: sha512-AAnlFKyfDRgb9GNZJbhQ6OuMhbmNPirQyapb8KnmcEhxQZ3+tt+4NcwqekEegY4MpNqSTYeeTdyxq0wGZv1JHg==}
+
+  '@atcute/varint@1.0.2':
+    resolution: {integrity: sha512-0O31hePzzr4O3NGWHUKKOyta6CGSL+AtN8iir8grGxu9jXyI7DBARlw6PbgKA6uTAvsXdpmRmF8MX+p0TsLnNg==}
 
   '@dprint/darwin-arm64@0.41.0':
     resolution: {integrity: sha512-P9PtcQI0mrI4U6yyd+/iI664BHSqC9KTS6ogq0ptEdnLtlaWzf09D1nv6FBaHiG9m3conuBRlPsoUqt3j6PZ2w==}
@@ -370,9 +373,6 @@ packages:
   flatted@3.2.9:
     resolution: {integrity: sha512-36yxDn5H7OFZQla0/jFJmbIKTdZAQHngCedGxiMmpNfEZM0sdEeT+WczLQrjK6D7o2aiyLYDnkw0R3JK0Qv1RQ==}
 
-  fp16@0.3.0:
-    resolution: {integrity: sha512-Iw6hLaH345EETQGU56NiAcJ173IraDRdJrVy+0fBMPdkZhzKNN/k3eqXFyNmnyx2/jnIzF2nr0mHh5nHrQBMEQ==}
-
   fs.realpath@1.0.0:
     resolution: {integrity: sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==}
 
@@ -650,28 +650,32 @@ snapshots:
 
   '@aashutoshrathi/word-wrap@1.2.6': {}
 
-  '@atcute/base32@1.0.0': {}
-
-  '@atcute/car@1.1.0':
+  '@atcute/car@3.0.3':
     dependencies:
-      '@atcute/cbor': 1.0.3
-      '@atcute/cid': 1.0.1
-      '@atcute/varint': 1.0.0
+      '@atcute/cbor': 2.2.2
+      '@atcute/cid': 2.2.1
+      '@atcute/varint': 1.0.2
 
-  '@atcute/cbor@1.0.3':
+  '@atcute/cbor@2.2.2':
     dependencies:
-      '@atcute/base32': 1.0.0
-      '@atcute/cid': 1.0.1
-      fp16: 0.3.0
+      '@atcute/cid': 2.2.1
+      '@atcute/multibase': 1.1.3
+      '@atcute/uint8array': 1.0.1
 
-  '@atcute/cid@1.0.1':
+  '@atcute/cid@2.2.1':
     dependencies:
-      '@atcute/base32': 1.0.0
-      '@atcute/varint': 1.0.0
+      '@atcute/multibase': 1.1.3
+      '@atcute/uint8array': 1.0.1
 
-  '@atcute/client@2.0.2': {}
+  '@atcute/client@3.0.1': {}
 
-  '@atcute/varint@1.0.0': {}
+  '@atcute/multibase@1.1.3':
+    dependencies:
+      '@atcute/uint8array': 1.0.1
+
+  '@atcute/uint8array@1.0.1': {}
+
+  '@atcute/varint@1.0.2': {}
 
   '@dprint/darwin-arm64@0.41.0':
     optional: true
@@ -1020,8 +1024,6 @@ snapshots:
       rimraf: 3.0.2
 
   flatted@3.2.9: {}
-
-  fp16@0.3.0: {}
 
   fs.realpath@1.0.0: {}
 

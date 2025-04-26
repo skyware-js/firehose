@@ -21,7 +21,7 @@
 		"prepublish": "pnpm lint && pnpm fmt && pnpm build"
 	},
 	"devDependencies": {
-		"@atcute/client": "^2.0.2",
+		"@atcute/client": "^3.0.1",
 		"@types/node": "^22.5.5",
 		"@types/ws": "^8.5.10",
 		"@typescript-eslint/eslint-plugin": "^6.7.4",
@@ -32,8 +32,8 @@
 		"typescript": "^5.6.2"
 	},
 	"dependencies": {
-		"@atcute/car": "^1.1.0",
-		"@atcute/cbor": "^1.0.3",
+		"@atcute/car": "^3.0.3",
+		"@atcute/cbor": "^2.2.2",
 		"tiny-emitter": "^2.1.0",
 		"ws": "^8.16.0"
 	},
