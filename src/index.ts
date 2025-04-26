@@ -26,9 +26,10 @@ export interface FirehoseOptions {
 	autoReconnect?: boolean;
 
 	/**
-	 * The WebSocket implementation to use.
+	 * The WebSocket implementation to use (e.g. `import ws from "ws"`).
+	 * Not required if you are on Node 21.0.0 or newer, or another environment that provides a WebSocket implementation.
 	 */
-	wsImpl?: typeof WS.WebSocket;
+	ws?: typeof WS.WebSocket | typeof WebSocket;
 }
 
 export class Firehose extends TinyEmitter {
@@ -36,7 +37,7 @@ export class Firehose extends TinyEmitter {
 	public relay: string;
 
 	/** WebSocket connection to the relay. */
-	public ws: WS.WebSocket;
+	public ws: WebSocket;
 
 	/** The current cursor. */
 	public cursor = "";
@@ -56,7 +57,11 @@ export class Firehose extends TinyEmitter {
 		this.autoReconnect = options.autoReconnect ?? true;
 
 		const cursorQueryParameter = this.cursor ? `?cursor=${this.cursor}` : "";
-		this.ws = new (options.wsImpl ?? WS.WebSocket)(
+		const wsImpl = typeof globalThis.WebSocket !== "undefined"
+			? globalThis.WebSocket
+			: (options.ws ?? WS.WebSocket);
+		// @ts-expect-error - irrelevant type incompatibility
+		this.ws = new wsImpl(
 			`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${cursorQueryParameter}`,
 		);
 	}
@@ -65,13 +70,14 @@ export class Firehose extends TinyEmitter {
 	 * Opens a WebSocket connection to the relay.
 	 */
 	start() {
-		this.ws.on("open", () => {
+		this.ws.addEventListener("open", () => {
 			this.emit("open");
 		});
 
-		this.ws.on("message", (data) => {
+		this.ws.addEventListener("message", async ({ data }) => {
 			try {
-				const message = this.parseMessage(data);
+				// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+				const message = await this.parseMessage(data);
 				if ("seq" in message && message.seq && !isNaN(message.seq)) {
 					this.cursor = `${message.seq}`;
 				}
@@ -102,11 +108,11 @@ export class Firehose extends TinyEmitter {
 			}
 		});
 
-		this.ws.on("close", () => {
+		this.ws.addEventListener("close", () => {
 			this.emit("close", this.cursor);
 		});
 
-		this.ws.on("error", (error) => {
+		this.ws.addEventListener("error", (error) => {
 			this.emit("websocketError", { cursor: this.cursor, error });
 		});
 	}
@@ -191,17 +197,12 @@ export class Firehose extends TinyEmitter {
 		return this;
 	}
 
-	private parseMessage(data: WS.RawData): ParsedCommit | { $type: string; seq?: number } {
-		let buffer: Buffer;
-		if (data instanceof Buffer) {
-			buffer = data;
-		} else if (data instanceof ArrayBuffer) {
-			buffer = Buffer.from(data);
-		} else if (Array.isArray(data)) {
-			buffer = Buffer.concat(data);
-		} else {
-			throw new Error("Unknown message contents: " + data);
-		}
+	private async parseMessage(
+		data: WS.Data,
+	): Promise<ParsedCommit | { $type: string; seq?: number }> {
+		const buffer = new Uint8Array(
+			await (new Blob(Array.isArray(data) ? data : [data])).arrayBuffer(),
+		);
 
 		const [header, remainder] = decodeFirst(buffer);
 		const [body, remainder2] = decodeFirst(remainder);
@@ -261,8 +262,7 @@ export class Firehose extends TinyEmitter {
 	}
 
 	private reconnect() {
-		this.ws?.removeAllListeners();
-		this.ws?.terminate();
+		this.ws?.close();
 		this.start();
 		this.emit("reconnect");
 	}
