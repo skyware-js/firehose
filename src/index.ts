@@ -151,12 +151,12 @@ const firehose = new Firehose({
 	/** Emitted when an error occurs while handling a message. */
 	on(
 		event: "error",
-		listener: ({ cursor, error }: { cursor: string; error: Error }) => () => void,
+		listener: ({ cursor, error }: { cursor: string; error: Error }) => void,
 	): Unsubscribe;
 	/** Emitted when an error occurs within the websocket. */
 	on(
 		event: "websocketError",
-		listener: ({ cursor, error }: { cursor: string; error: unknown }) => () => void,
+		listener: ({ cursor, error }: { cursor: string; error: unknown }) => void,
 	): Unsubscribe;
 	/** Represents a commit to a user's repository. */
 	on(event: "commit", listener: (message: CommitEvent) => void): Unsubscribe;
