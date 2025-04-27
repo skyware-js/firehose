@@ -157,63 +157,31 @@ const firehose = new Firehose({
 		event: "websocketError",
 		listener: ({ cursor, error }: { cursor: string; error: unknown }) => void,
 	): this;
-	/** Emitted when an unknown message is received. */
-	override on(event: "unknown", listener: (message: unknown) => void): this;
-	/**
-	 * Represents a change to an account's identity.
-	 * Could be an updated handle, signing key, or pds hosting endpoint.
-	 */
-	override on(
-		event: "identity",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Identity & {
-				$type: "com.atproto.sync.subscribeRepos#identity";
-			},
-		) => void,
-	): this;
-	/**
-	 * Represents a change to an account's status on a host (eg, PDS or Relay).
-	 */
-	override on(
-		event: "account",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Account & {
-				$type: "com.atproto.sync.subscribeRepos#account";
-			},
-		) => void,
-	): this;
+	/** Represents a commit to a user's repository. */
+	override on(event: "commit", listener: (message: CommitEvent) => void): this;
 	/**
 	 * Updates the repo to a new state, without necessarily including that state on the firehose.
 	 * Used to recover from broken commit streams, data loss incidents, or in situations where upstream
 	 * host does not know recent state of the repository.
 	 */
-	override on(
-		event: "sync",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Sync & {
-				$type: "com.atproto.sync.subscribeRepos#sync";
-			},
-		) => void,
-	): this;
-	/** Represents a commit to a user's repository. */
-	override on(event: "commit", listener: (message: ParsedCommit) => void): this;
+	override on(event: "sync", listener: (message: SyncEvent) => void): this;
+	/** Represents a change to an account's status on a host (eg, PDS or Relay). */
+	override on(event: "account", listener: (message: AccountEvent) => void): this;
+	/**
+	 * Represents a change to an account's identity.
+	 * Could be an updated handle, signing key, or pds hosting endpoint.
+	 */
+	override on(event: "identity", listener: (message: IdentityEvent) => void): this;
 	/** An informational message from the relay. */
-	override on(
-		event: "info",
-		listener: (
-			message: ComAtprotoSyncSubscribeRepos.Info & {
-				$type: "com.atproto.sync.subscribeRepos#info";
-			},
-		) => void,
-	): this;
+	override on(event: "info", listener: (message: InfoEvent) => void): this;
+	/** Emitted when an unknown message is received. */
+	override on(event: "unknown", listener: (message: unknown) => void): this;
 	override on(event: string, listener: (...args: any[]) => void): this {
 		super.on(event, listener);
 		return this;
 	}
 
-	private async parseMessage(
-		data: WSData,
-	): Promise<ParsedCommit | { $type: string; seq?: number }> {
+	private async parseMessage(data: WSData): Promise<Event | { $type: string; seq?: number }> {
 		const buffer = new Uint8Array(
 			await (new Blob(Array.isArray(data) ? data : [data])).arrayBuffer(),
 		);
@@ -244,7 +212,7 @@ const firehose = new Firehose({
 			} = body as ComAtprotoSyncSubscribeRepos.Commit;
 
 			// A commit can contain no changes
-			if (!blocksBytes || !blocksBytes.$bytes.length) {
+			if (!blocksBytes?.$bytes?.length) {
 				return {
 					$type: "com.atproto.sync.subscribeRepos#commit",
 					seq,
@@ -256,7 +224,7 @@ const firehose = new Firehose({
 					ops: [],
 					...(prevData ? { prevData: prevData.$link } : {}),
 					time,
-				} satisfies ParsedCommit;
+				} satisfies CommitEvent;
 			}
 
 			const blocks = fromBytes(blocksBytes);
@@ -309,8 +277,24 @@ const firehose = new Firehose({
 				ops,
 				...(prevData ? { prevData: prevData.$link } : {}),
 				time,
-			} satisfies ParsedCommit;
+			} satisfies CommitEvent;
+		} else if (t === "#sync") {
+			const { seq, did, blocks: blocksBytes, rev, time } =
+				body as ComAtprotoSyncSubscribeRepos.Sync;
+
+			const blocks = (blocksBytes?.$bytes?.length)
+				? fromBytes(blocksBytes)
+				: new Uint8Array();
+			return {
+				$type: "com.atproto.sync.subscribeRepos#sync",
+				seq,
+				did,
+				blocks,
+				rev,
+				time,
+			} satisfies SyncEvent;
 		}
+
 		return { $type: `com.atproto.sync.subscribeRepos${t}`, ...body };
 	}
 
@@ -373,15 +357,15 @@ export type RepoOp = CreateOp | UpdateOp | DeleteOp;
 /**
  * Represents an update of repository state.
  */
-export interface ParsedCommit {
+export interface CommitEvent {
 	$type: "com.atproto.sync.subscribeRepos#commit";
 	/** The stream sequence number of this message. */
 	seq: number;
 	/** The repo this event comes from. */
-	repo: string;
+	repo: At.Did;
 	/** Repo commit object CID. */
 	commit: At.Cid;
-	/** The rev of the emitted commit. Note that this information is also in the commit object included in blocks, unless this is a tooBig event. */
+	/** The rev of the emitted commit. Note that this information is also in the commit object included in blocks. */
 	rev: string;
 	/** The rev of the last emitted commit from this repo (if any). */
 	since: string | null;
@@ -394,6 +378,31 @@ export interface ParsedCommit {
 	/** Timestamp of when this message was originally broadcast. */
 	time: string;
 }
+
+export interface SyncEvent {
+	$type: "com.atproto.sync.subscribeRepos#sync";
+	/** The stream sequence number of this message. */
+	seq: number;
+	/** The repo this event comes from. */
+	did: At.Did;
+	/** CAR file containing the commit, as a block. */
+	blocks: Uint8Array;
+	/** The rev of the commit. */
+	rev: string;
+	/** Timestamp of when this message was originally broadcast. */
+	time: string;
+}
+
+export type AccountEvent = ComAtprotoSyncSubscribeRepos.Account & {
+	$type: "com.atproto.sync.subscribeRepos#account";
+};
+export type IdentityEvent = ComAtprotoSyncSubscribeRepos.Identity & {
+	$type: "com.atproto.sync.subscribeRepos#identity";
+};
+export type InfoEvent = ComAtprotoSyncSubscribeRepos.Info & {
+	$type: "com.atproto.sync.subscribeRepos#info";
+};
+export type Event = CommitEvent | SyncEvent | AccountEvent | IdentityEvent | InfoEvent;
 
 function parseHeader(header: any): { t: string; op: 1 | -1 } {
 	if (
