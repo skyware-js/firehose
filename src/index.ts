@@ -3,7 +3,7 @@ import { decode, decodeFirst, fromBytes, toCidLink } from "@atcute/cbor";
 import type { At, ComAtprotoSyncSubscribeRepos } from "@atcute/client/lexicons";
 
 import { TinyEmitter } from "tiny-emitter";
-import * as WS from "ws";
+import type { Data as WSData, WebSocket as WSWebSocket } from "ws";
 
 /**
  * Options for the Firehose class.
@@ -29,7 +29,7 @@ export interface FirehoseOptions {
 	 * The WebSocket implementation to use (e.g. `import ws from "ws"`).
 	 * Not required if you are on Node 21.0.0 or newer, or another environment that provides a WebSocket implementation.
 	 */
-	ws?: typeof WS.WebSocket | typeof WebSocket;
+	ws?: typeof WSWebSocket | typeof WebSocket;
 }
 
 export class Firehose extends TinyEmitter {
@@ -57,10 +57,24 @@ export class Firehose extends TinyEmitter {
 		this.autoReconnect = options.autoReconnect ?? true;
 
 		const cursorQueryParameter = this.cursor ? `?cursor=${this.cursor}` : "";
-		const wsImpl = typeof globalThis.WebSocket !== "undefined"
-			? globalThis.WebSocket
-			: (options.ws ?? WS.WebSocket);
-		// @ts-expect-error - irrelevant type incompatibility
+
+		if (typeof globalThis.WebSocket === "undefined" && !options.ws) {
+			throw new Error(
+				`No WebSocket implementation was found in your environment. You must provide an implementation as the \`ws\` option.
+
+For example, in a Node.js environment, \`npm install ws\` and then:
+import { Firehose } from "@skyware/firehose";
+import WebSocket from "ws";
+
+const firehose = new Firehose({
+	ws: WebSocket,
+});`,
+			);
+		}
+
+		const wsImpl = options.ws ?? globalThis.WebSocket;
+
+		// @ts-expect-error — prototype incompatibility
 		this.ws = new wsImpl(
 			`${this.relay}/xrpc/com.atproto.sync.subscribeRepos${cursorQueryParameter}`,
 		);
@@ -198,7 +212,7 @@ export class Firehose extends TinyEmitter {
 	}
 
 	private async parseMessage(
-		data: WS.Data,
+		data: WSData,
 	): Promise<ParsedCommit | { $type: string; seq?: number }> {
 		const buffer = new Uint8Array(
 			await (new Blob(Array.isArray(data) ? data : [data])).arrayBuffer(),

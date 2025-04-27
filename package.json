@@ -29,13 +29,13 @@
 		"dprint": "^0.41.0",
 		"eslint": "^8.50.0",
 		"multiformats": "^13.1.0",
-		"typescript": "^5.6.2"
+		"typescript": "^5.6.2",
+		"ws": "^8.18.1"
 	},
 	"dependencies": {
 		"@atcute/car": "^3.0.3",
 		"@atcute/cbor": "^2.2.2",
-		"tiny-emitter": "^2.1.0",
-		"ws": "^8.16.0"
+		"tiny-emitter": "^2.1.0"
 	},
 	"files": [
 		"dist"
