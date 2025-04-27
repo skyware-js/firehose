@@ -35,7 +35,7 @@
 	"dependencies": {
 		"@atcute/car": "^3.0.3",
 		"@atcute/cbor": "^2.2.2",
-		"tiny-emitter": "^2.1.0"
+		"nanoevents": "^9.1.0"
 	},
 	"files": [
 		"dist"

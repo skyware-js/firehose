@@ -14,9 +14,9 @@ importers:
       '@atcute/cbor':
         specifier: ^2.2.2
         version: 2.2.2
-      tiny-emitter:
-        specifier: ^2.1.0
-        version: 2.1.0
+      nanoevents:
+        specifier: ^9.1.0
+        version: 9.1.0
     devDependencies:
       '@atcute/client':
         specifier: ^3.0.1
@@ -487,6 +487,10 @@ packages:
   multiformats@13.1.0:
     resolution: {integrity: sha512-HzdtdBwxsIkzpeXzhQ5mAhhuxcHbjEHH+JQoxt7hG/2HGFjjwyolLo7hbaexcnhoEuV4e0TNJ8kkpMjiEYY4VQ==}
 
+  nanoevents@9.1.0:
+    resolution: {integrity: sha512-Jd0fILWG44a9luj8v5kED4WI+zfkkgwKyRQKItTtlPfEsh7Lznfi1kr8/iZ+XAIss4Qq5GqRB0qtWbaz9ceO/A==}
+    engines: {node: ^18.0.0 || >=20.0.0}
+
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
@@ -586,9 +590,6 @@ packages:
 
   text-table@0.2.0:
     resolution: {integrity: sha512-N+8UisAXDGk8PFXP4HAzVR9nbfmVJ3zYLAWiTIoqC5v5isinhr+r5uaO8+7r3BMfuNIufIsA7RdpVgacC2cSpw==}
-
-  tiny-emitter@2.1.0:
-    resolution: {integrity: sha512-NB6Dk1A9xgQPMoGqC5CVXn123gWyte215ONT5Pp5a0yt4nlEoO1ZWeCwpncaekPHXO60i47ihFnZPiRPjRMq4Q==}
 
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
@@ -1133,6 +1134,8 @@ snapshots:
 
   multiformats@13.1.0: {}
 
+  nanoevents@9.1.0: {}
+
   natural-compare@1.4.0: {}
 
   once@1.4.0:
@@ -1211,8 +1214,6 @@ snapshots:
       has-flag: 4.0.0
 
   text-table@0.2.0: {}
-
-  tiny-emitter@2.1.0: {}
 
   to-regex-range@5.0.1:
     dependencies:

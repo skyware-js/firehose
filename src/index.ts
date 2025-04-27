@@ -2,7 +2,7 @@ import { readCar as createCarIterator } from "@atcute/car";
 import { decode, decodeFirst, fromBytes, toCidLink } from "@atcute/cbor";
 import type { At, ComAtprotoSyncSubscribeRepos } from "@atcute/client/lexicons";
 
-import { TinyEmitter } from "tiny-emitter";
+import { createNanoEvents, type Unsubscribe } from "nanoevents";
 import type { Data as WSData, WebSocket as WSWebSocket } from "ws";
 
 /**
@@ -32,7 +32,7 @@ export interface FirehoseOptions {
 	ws?: typeof WSWebSocket | typeof WebSocket;
 }
 
-export class Firehose extends TinyEmitter {
+export class Firehose {
 	/** The relay to connect to. */
 	public relay: string;
 
@@ -41,6 +41,8 @@ export class Firehose extends TinyEmitter {
 
 	/** The current cursor. */
 	public cursor = "";
+
+	private emitter = createNanoEvents();
 
 	private autoReconnect: boolean;
 
@@ -51,7 +53,6 @@ export class Firehose extends TinyEmitter {
 	 * @param options Optional configuration.
 	 */
 	constructor(options: FirehoseOptions = {}) {
-		super();
 		this.relay = options.relay ?? "wss://bsky.network";
 		this.cursor = options.cursor ?? "";
 		this.autoReconnect = options.autoReconnect ?? true;
@@ -85,7 +86,7 @@ const firehose = new Firehose({
 	 */
 	start() {
 		this.ws.addEventListener("open", () => {
-			this.emit("open");
+			this.emitter.emit("open");
 		});
 
 		this.ws.addEventListener("message", async ({ data }) => {
@@ -97,37 +98,37 @@ const firehose = new Firehose({
 				}
 				switch (message.$type) {
 					case "com.atproto.sync.subscribeRepos#identity":
-						this.emit("identity", message);
+						this.emitter.emit("identity", message);
 						break;
 					case "com.atproto.sync.subscribeRepos#account":
-						this.emit("account", message);
+						this.emitter.emit("account", message);
 						break;
 					case "com.atproto.sync.subscribeRepos#info":
-						this.emit("info", message);
+						this.emitter.emit("info", message);
 						break;
 					case "com.atproto.sync.subscribeRepos#sync":
-						this.emit("sync", message);
+						this.emitter.emit("sync", message);
 						break;
 					case "com.atproto.sync.subscribeRepos#commit":
-						this.emit("commit", message);
+						this.emitter.emit("commit", message);
 						break;
 					default:
-						this.emit("unknown", message);
+						this.emitter.emit("unknown", message);
 						break;
 				}
 			} catch (error) {
-				this.emit("error", { cursor: this.cursor, error });
+				this.emitter.emit("error", { cursor: this.cursor, error });
 			} finally {
 				if (this.autoReconnect) this.preventReconnect();
 			}
 		});
 
 		this.ws.addEventListener("close", () => {
-			this.emit("close", this.cursor);
+			this.emitter.emit("close", this.cursor);
 		});
 
 		this.ws.addEventListener("error", (error) => {
-			this.emit("websocketError", { cursor: this.cursor, error });
+			this.emitter.emit("websocketError", { cursor: this.cursor, error });
 		});
 	}
 
@@ -139,46 +140,45 @@ const firehose = new Firehose({
 	}
 
 	/** Emitted when the connection is opened. */
-	override on(event: "open", listener: () => void): this;
+	on(event: "open", listener: () => void): Unsubscribe;
 	/** Emitted when the connection is closed. */
-	override on(event: "close", listener: (cursor: string) => void): this;
+	on(event: "close", listener: (cursor: string) => void): Unsubscribe;
 	/**
 	 * Emitted when the websocket reconnects due to not receiving any messages for a period of time.
 	 * This will only be emitted if the `autoReconnect` option is `true`.
 	 */
-	override on(event: "reconnect", listener: () => void): this;
+	on(event: "reconnect", listener: () => void): Unsubscribe;
 	/** Emitted when an error occurs while handling a message. */
-	override on(
+	on(
 		event: "error",
-		listener: ({ cursor, error }: { cursor: string; error: Error }) => void,
-	): this;
+		listener: ({ cursor, error }: { cursor: string; error: Error }) => () => void,
+	): Unsubscribe;
 	/** Emitted when an error occurs within the websocket. */
-	override on(
+	on(
 		event: "websocketError",
-		listener: ({ cursor, error }: { cursor: string; error: unknown }) => void,
-	): this;
+		listener: ({ cursor, error }: { cursor: string; error: unknown }) => () => void,
+	): Unsubscribe;
 	/** Represents a commit to a user's repository. */
-	override on(event: "commit", listener: (message: CommitEvent) => void): this;
+	on(event: "commit", listener: (message: CommitEvent) => void): Unsubscribe;
 	/**
 	 * Updates the repo to a new state, without necessarily including that state on the firehose.
 	 * Used to recover from broken commit streams, data loss incidents, or in situations where upstream
 	 * host does not know recent state of the repository.
 	 */
-	override on(event: "sync", listener: (message: SyncEvent) => void): this;
+	on(event: "sync", listener: (message: SyncEvent) => void): Unsubscribe;
 	/** Represents a change to an account's status on a host (eg, PDS or Relay). */
-	override on(event: "account", listener: (message: AccountEvent) => void): this;
+	on(event: "account", listener: (message: AccountEvent) => void): Unsubscribe;
 	/**
 	 * Represents a change to an account's identity.
 	 * Could be an updated handle, signing key, or pds hosting endpoint.
 	 */
-	override on(event: "identity", listener: (message: IdentityEvent) => void): this;
+	on(event: "identity", listener: (message: IdentityEvent) => void): Unsubscribe;
 	/** An informational message from the relay. */
-	override on(event: "info", listener: (message: InfoEvent) => void): this;
+	on(event: "info", listener: (message: InfoEvent) => void): Unsubscribe;
 	/** Emitted when an unknown message is received. */
-	override on(event: "unknown", listener: (message: unknown) => void): this;
-	override on(event: string, listener: (...args: any[]) => void): this {
-		super.on(event, listener);
-		return this;
+	on(event: "unknown", listener: (message: unknown) => void): Unsubscribe;
+	on(event: string, listener: (...args: any[]) => void): () => void {
+		return this.emitter.on(event, listener);
 	}
 
 	private async parseMessage(data: WSData): Promise<Event | { $type: string; seq?: number }> {
@@ -308,7 +308,7 @@ const firehose = new Firehose({
 	private reconnect() {
 		this.ws?.close();
 		this.start();
-		this.emit("reconnect");
+		this.emitter.emit("reconnect");
 	}
 }
 
