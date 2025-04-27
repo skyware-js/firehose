@@ -217,38 +217,84 @@ export class Firehose extends TinyEmitter {
 		}
 
 		if (t === "#commit") {
-			const commit = body as ComAtprotoSyncSubscribeRepos.Commit;
+			const {
+				seq,
+				repo,
+				commit,
+				rev,
+				since,
+				blocks: blocksBytes,
+				ops: commitOps,
+				prevData,
+				time,
+			} = body as ComAtprotoSyncSubscribeRepos.Commit;
 
 			// A commit can contain no changes
-			if (!("blocks" in commit) || !commit.blocks.$bytes.length) {
+			if (!blocksBytes || !blocksBytes.$bytes.length) {
 				return {
 					$type: "com.atproto.sync.subscribeRepos#commit",
-					...commit,
+					seq,
+					repo,
+					commit: commit.$link,
+					rev,
+					since,
 					blocks: new Uint8Array(),
 					ops: [],
+					...(prevData ? { prevData: prevData.$link } : {}),
+					time,
 				} satisfies ParsedCommit;
 			}
 
-			const blocks = fromBytes(commit.blocks);
+			const blocks = fromBytes(blocksBytes);
 			const car = readCar(blocks);
-			const ops: Array<RepoOp> = commit.ops.map((op) => {
+
+			const ops: Array<RepoOp> = [];
+			for (const op of commitOps) {
 				const action: "create" | "update" | "delete" = op.action as any;
-				if (action === "create" || action === "update") {
-					if (!op.cid) return;
+				if (action === "create") {
+					if (!op.cid) continue;
 					const record = car.get(op.cid.$link);
-					if (!record) return;
-					return { action, path: op.path, cid: op.cid.$link, record };
+					if (!record) continue;
+					ops.push(
+						{ action, path: op.path, cid: op.cid.$link, record } satisfies CreateOp,
+					);
+				} else if (action === "update") {
+					if (!op.cid) continue;
+					const record = car.get(op.cid.$link);
+					if (!record) continue;
+					ops.push(
+						{
+							action,
+							path: op.path,
+							cid: op.cid.$link,
+							...(op.prev ? { prev: op.prev.$link } : {}),
+							record,
+						} satisfies UpdateOp,
+					);
 				} else if (action === "delete") {
-					return { action, path: op.path };
+					ops.push(
+						{
+							action,
+							path: op.path,
+							...(op.prev ? { prev: op.prev.$link } : {}),
+						} satisfies DeleteOp,
+					);
 				} else {
 					throw new Error(`Unknown action: ${action}`);
 				}
-			}).filter((op): op is Exclude<typeof op, undefined> => !!op);
+			}
+
 			return {
 				$type: "com.atproto.sync.subscribeRepos#commit",
-				...commit,
+				seq,
+				repo,
+				commit: commit.$link,
+				rev,
+				since,
 				blocks,
 				ops,
+				...(prevData ? { prevData: prevData.$link } : {}),
+				time,
 			} satisfies ParsedCommit;
 		}
 		return { $type: `com.atproto.sync.subscribeRepos${t}`, ...body };
@@ -269,18 +315,30 @@ export class Firehose extends TinyEmitter {
 }
 
 /**
- * Represents a `create` or `update` repository operation.
+ * Represents a `create` repository operation.
  */
-export interface CreateOrUpdateOp {
-	action: "create" | "update";
-
+export interface CreateOp {
+	action: "create";
 	/** The record's path in the repository. */
 	path: string;
-
 	/** The record's CID. */
-	cid: string;
+	cid: At.Cid;
+	/** The record's content. */
+	record: {};
+}
 
-	/** The record itself. */
+/**
+ * Represents an `update` repository operation.
+ */
+export interface UpdateOp {
+	action: "update";
+	/** The record's path in the repository. */
+	path: string;
+	/** The record's CID. */
+	cid: At.Cid;
+	/** The previous record CID. */
+	prev?: At.Cid;
+	/** The record's content. */
 	record: {};
 }
 
@@ -289,13 +347,14 @@ export interface CreateOrUpdateOp {
  */
 export interface DeleteOp {
 	action: "delete";
-
 	/** The record's path in the repository. */
 	path: string;
+	/** The previous record CID. */
+	prev?: At.Cid;
 }
 
 /** A repository operation. */
-export type RepoOp = CreateOrUpdateOp | DeleteOp;
+export type RepoOp = CreateOp | UpdateOp | DeleteOp;
 
 /**
  * Represents an update of repository state.
@@ -304,12 +363,10 @@ export interface ParsedCommit {
 	$type: "com.atproto.sync.subscribeRepos#commit";
 	/** The stream sequence number of this message. */
 	seq: number;
-	/** Indicates that this commit contained too many ops, or data size was too large. Consumers will need to make a separate request to get missing data. */
-	tooBig: boolean;
 	/** The repo this event comes from. */
 	repo: string;
 	/** Repo commit object CID. */
-	commit: At.CidLink;
+	commit: At.Cid;
 	/** The rev of the emitted commit. Note that this information is also in the commit object included in blocks, unless this is a tooBig event. */
 	rev: string;
 	/** The rev of the last emitted commit from this repo (if any). */
@@ -318,8 +375,8 @@ export interface ParsedCommit {
 	blocks: Uint8Array;
 	/** List of repo mutation operations in this commit (eg, records created, updated, or deleted). */
 	ops: Array<RepoOp>;
-	/** List of new blobs (by CID) referenced by records in this commit. */
-	blobs: At.CidLink[];
+	/** The root CID of the MST tree for the previous commit from this repo (indicated by the 'since' revision field in this message). Corresponds to the 'data' field in the repo commit object. */
+	prevData?: At.Cid;
 	/** Timestamp of when this message was originally broadcast. */
 	time: string;
 }
