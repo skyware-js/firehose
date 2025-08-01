@@ -1,6 +1,6 @@
+import type { ComAtprotoSyncSubscribeRepos } from "@atcute/atproto";
 import { readCar as createCarIterator } from "@atcute/car";
 import { decode, decodeFirst, fromBytes, toCidLink } from "@atcute/cbor";
-import type { At, ComAtprotoSyncSubscribeRepos } from "@atcute/client/lexicons";
 
 import { createNanoEvents, type Unsubscribe } from "nanoevents";
 import type { Data as WSData, WebSocket as WSWebSocket } from "ws";
@@ -320,7 +320,7 @@ export interface CreateOp {
 	/** The record's path in the repository. */
 	path: string;
 	/** The record's CID. */
-	cid: At.Cid;
+	cid: string;
 	/** The record's content. */
 	record: {};
 }
@@ -333,9 +333,9 @@ export interface UpdateOp {
 	/** The record's path in the repository. */
 	path: string;
 	/** The record's CID. */
-	cid: At.Cid;
+	cid: string;
 	/** The previous record CID. */
-	prev?: At.Cid;
+	prev?: string;
 	/** The record's content. */
 	record: {};
 }
@@ -348,7 +348,7 @@ export interface DeleteOp {
 	/** The record's path in the repository. */
 	path: string;
 	/** The previous record CID. */
-	prev?: At.Cid;
+	prev?: string;
 }
 
 /** A repository operation. */
@@ -362,10 +362,10 @@ export interface CommitEvent {
 	/** The stream sequence number of this message. */
 	seq: number;
 	/** The repo this event comes from. */
-	repo: At.Did;
+	repo: string;
 	/** Repo commit object CID. */
-	commit: At.Cid;
-	/** The rev of the emitted commit. Note that this information is also in the commit object included in blocks. */
+	commit: string;
+	/** The rev of the emitted commit. Note that this information is also in the commit object included in blocks, unless this is a tooBig event. */
 	rev: string;
 	/** The rev of the last emitted commit from this repo (if any). */
 	since: string | null;
@@ -373,8 +373,8 @@ export interface CommitEvent {
 	blocks: Uint8Array;
 	/** List of repo mutation operations in this commit (eg, records created, updated, or deleted). */
 	ops: Array<RepoOp>;
-	/** The root CID of the MST tree for the previous commit from this repo (indicated by the 'since' revision field in this message). Corresponds to the 'data' field in the repo commit object. */
-	prevData?: At.Cid;
+	/** List of new blobs (by CID) referenced by records in this commit. */
+	blobs?: { $link: string }[];
 	/** Timestamp of when this message was originally broadcast. */
 	time: string;
 }
@@ -384,7 +384,7 @@ export interface SyncEvent {
 	/** The stream sequence number of this message. */
 	seq: number;
 	/** The repo this event comes from. */
-	did: At.Did;
+	did: string;
 	/** CAR file containing the commit, as a block. */
 	blocks: Uint8Array;
 	/** The rev of the commit. */
@@ -418,9 +418,9 @@ function parseHeader(header: any): { t: string; op: 1 | -1 } {
 	return { t: header.t, op: header.op };
 }
 
-function readCar(buffer: Uint8Array): Map<At.Cid, unknown> {
-	const records = new Map<At.Cid, unknown>();
-	for (const { cid, bytes } of createCarIterator(buffer).iterate()) {
+function readCar(buffer: Uint8Array): Map<string, unknown> {
+	const records = new Map<string, unknown>();
+	for (const { cid, bytes } of createCarIterator(buffer)) {
 		records.set(toCidLink(cid).$link, decode(bytes));
 	}
 	return records;
